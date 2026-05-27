@@ -14,39 +14,45 @@ interface Params {
 }
 
 export async function GET(req: Request, { params }: Params) {
-  const { id } = await params;
-  const user = await getOrCreateDbUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const { id } = await params;
+    const user = await getOrCreateDbUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const conv = await getConversation(id, user.id);
-  if (!conv) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const conv = await getConversation(id, user.id);
+    if (!conv) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // F6: cursor-based pagination — ?before=<ISO-timestamp> loads older messages
-  const url = new URL(req.url);
-  const beforeParam = url.searchParams.get("before");
+    // F6: cursor-based pagination — ?before=<ISO-timestamp> loads older messages
+    const url = new URL(req.url);
+    const beforeParam = url.searchParams.get("before");
 
-  let msgs;
-  let hasMore = false;
-  let nextCursor: string | null = null;
-  const PAGE_SIZE = 50;
+    let msgs;
+    let hasMore = false;
+    let nextCursor: string | null = null;
+    const PAGE_SIZE = 50;
 
-  if (beforeParam) {
-    const before = new Date(beforeParam);
-    if (isNaN(before.getTime())) {
-      return NextResponse.json({ error: "Invalid 'before' cursor" }, { status: 400 });
+    if (beforeParam) {
+      const before = new Date(beforeParam);
+      if (isNaN(before.getTime())) {
+        return NextResponse.json({ error: "Invalid 'before' cursor" }, { status: 400 });
+      }
+      const older = await getMessagesBefore(id, before, PAGE_SIZE);
+      hasMore = older.length >= PAGE_SIZE;
+      nextCursor = hasMore ? older[0].createdAt.toISOString() : null;
+      msgs = older;
+    } else {
+      msgs = await getMessages(id, PAGE_SIZE);
+      // If there are exactly PAGE_SIZE results there may be older messages
+      hasMore = msgs.length >= PAGE_SIZE;
+      nextCursor = hasMore ? msgs[0].createdAt.toISOString() : null;
     }
-    const older = await getMessagesBefore(id, before, PAGE_SIZE);
-    hasMore = older.length >= PAGE_SIZE;
-    nextCursor = hasMore ? older[0].createdAt.toISOString() : null;
-    msgs = older;
-  } else {
-    msgs = await getMessages(id, PAGE_SIZE);
-    // If there are exactly PAGE_SIZE results there may be older messages
-    hasMore = msgs.length >= PAGE_SIZE;
-    nextCursor = hasMore ? msgs[0].createdAt.toISOString() : null;
-  }
 
-  return NextResponse.json({ ...conv, messages: msgs, hasMore, nextCursor });
+    return NextResponse.json({ ...conv, messages: msgs, hasMore, nextCursor });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[GET /api/conversations/:id]", message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 const patchSchema = z.object({ title: z.string().min(1).max(500) });

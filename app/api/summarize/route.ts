@@ -64,8 +64,13 @@ async function handler(req: Request) {
   }
 }
 
-// Verify QStash signature in production; skip in local dev
-export const POST =
-  process.env.NODE_ENV === "production"
-    ? verifySignatureAppRouter(handler)
-    : handler;
+// Defer verifySignatureAppRouter to request time — calling it at module evaluation
+// reads QSTASH_CURRENT_SIGNING_KEY immediately, which isn't set during Vercel's
+// build-time page-data collection and causes a hard build failure.
+export async function POST(req: Request) {
+  if (process.env.NODE_ENV === "production") {
+    const wrapped = verifySignatureAppRouter(handler);
+    return wrapped(req);
+  }
+  return handler(req);
+}
