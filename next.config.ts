@@ -9,9 +9,9 @@ const nextConfig: NextConfig = {
         destination: "https://unpkg.com/:path*",
       },
       {
-        // Clerk auth API calls
+        // Clerk auth API calls → actual Clerk backend (DNS CNAME target)
         source: "/__clerk/:path*",
-        destination: "https://clerk.orthogonaloa.com/:path*",
+        destination: "https://frontend-api.clerk.services/:path*",
       },
     ];
   },
