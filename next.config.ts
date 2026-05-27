@@ -4,12 +4,12 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        // Clerk JS + UI bundles live on npm.clerk.dev
+        // Clerk JS/UI bundles via unpkg CDN (clerk.orthogonaloa.com DNS not yet provisioned)
         source: "/__clerk/npm/:path*",
-        destination: "https://npm.clerk.dev/:path*",
+        destination: "https://unpkg.com/:path*",
       },
       {
-        // Clerk API calls go to the Frontend API host
+        // Clerk auth API calls
         source: "/__clerk/:path*",
         destination: "https://clerk.orthogonaloa.com/:path*",
       },
